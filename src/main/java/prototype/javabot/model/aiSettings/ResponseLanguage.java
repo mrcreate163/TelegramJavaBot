@@ -1,4 +1,4 @@
-package prototype.javabot.model;
+package prototype.javabot.model.aiSettings;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

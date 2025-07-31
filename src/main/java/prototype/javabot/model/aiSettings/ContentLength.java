@@ -1,4 +1,4 @@
-package prototype.javabot.model;
+package prototype.javabot.model.aiSettings;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -14,7 +14,7 @@ public enum ContentLength {
     private final String displayName;
     private final String instruction;
 
-    private static ContentLength fromCallbackData(String callbackData) {
+    public static ContentLength fromCallbackData(String callbackData) {
         for (ContentLength length : values()) {
             if (length.getCallbackData().equals(callbackData)) {
                 return length;

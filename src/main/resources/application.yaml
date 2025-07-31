@@ -1,3 +1,23 @@
-spring.application.name=TelegramJavaBot
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/telegram_ai_bot
+    username: ai_user
+    password: ai_password
+    driver-class-name: org.postgresql.Driver
 
-tele
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+telegram:
+  bot:
+    username: content_maker_java_bot
+    token: 8104387648:AAHRxOyZIq9eZ_c5wGz6zZLmZUjhj78PcOA
+
+openrouter:
+  api-key: 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
+  model: mistralai/mistral-7b-instruct
