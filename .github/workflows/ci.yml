@@ -1,0 +1,106 @@
+# Имя workflow - отображается в интерфейсе GitHub
+name: CI Pipeline
+
+# Когда запускать этот workflow
+on:
+  push:  # При push (отправке кода)
+    branches: [ main, develop ]  # Только для веток main и develop
+  pull_request:  # При создании Pull Request
+    branches: [ main ]  # Только если PR в ветку main
+
+# Задания, которые нужно выполнить
+jobs:
+
+  # Первое задание - тестирование
+  test:
+    runs-on: ubuntu-latest  # На какой ОС запускать (Ubuntu последней версии)
+
+    # Сервисы - дополнительные контейнеры для тестов
+    services:
+      postgres:  # База данных для тестов
+        image: postgres:16-alpine
+        env:  # Переменные окружения для настройки
+          POSTGRES_DB: telegram_ai_bot_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-  # Дополнительные параметры Docker
+          --health-cmd pg_isready      # Команда проверки здоровья
+          --health-interval 10s         # Интервал проверки
+          --health-timeout 5s           # Таймаут
+          --health-retries 5            # Количество попыток
+        ports:
+          - 5432:5432  # Проброс порта для доступа из тестов
+
+    # Шаги выполнения
+    steps:
+      # Шаг 1: Получить код из репозитория
+      - uses: actions/checkout@v3  # Используем готовое действие от GitHub
+
+      # Шаг 2: Установить Java
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'  # Дистрибутив Java (Eclipse Temurin)
+          cache: maven  # Кешировать зависимости Maven между запусками
+
+      # Шаг 3: Запустить тесты
+      - name: Run tests
+        env:  # Переменные окружения для подключения к тестовой БД
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/telegram_ai_bot_test
+          SPRING_DATASOURCE_USERNAME: test_user
+          SPRING_DATASOURCE_PASSWORD: test_password
+        run: ./mvnw clean test  # Команда для запуска тестов
+
+      # Шаг 4: Создать отчёт о тестах
+      - name: Generate test report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()  # Выполнить даже если тесты упали
+        with:
+          name: Maven Tests
+          path: target/surefire-reports/*.xml  # Где искать результаты тестов
+          reporter: java-junit  # Формат отчётов
+
+      # Шаг 5: Собрать приложение
+      - name: Build with Maven
+        run: ./mvnw clean package -DskipTests  # Собираем JAR, пропуская тесты
+
+  # Второе задание - сборка Docker образа
+  docker:
+    needs: test  # Запускать только после успешного завершения test
+    runs-on: ubuntu-latest
+    # Условие: только для push в main ветку
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      # Получить код
+      - uses: actions/checkout@v3
+
+      # Настроить Docker Buildx (улучшенный сборщик)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Собрать Docker образ
+      - name: Build Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .  # Контекст сборки - текущая директория
+          push: false  # Не отправлять в registry (только собрать)
+          tags: telegram-content-bot:latest  # Теги для образа
+          cache-from: type=gha  # Использовать кеш GitHub Actions
+          cache-to: type=gha,mode=max  # Сохранить кеш для будущих сборок
+
+# Как это работает:
+# 1. При каждом push в main/develop GitHub автоматически:
+#    - Запускает тесты с реальной БД
+#    - Проверяет, что код компилируется
+#    - Создаёт отчёт о тестах
+# 2. При push в main дополнительно собирается Docker образ
+# 3. Если что-то сломалось, вы увидите ❌ рядом с коммитом
+# 4. Если всё хорошо - ✅
+
+# Преимущества:
+# - Автоматическая проверка кода
+# - Раннее обнаружение ошибок
+# - Уверенность, что код работает
+# - Профессиональный подход к разработке

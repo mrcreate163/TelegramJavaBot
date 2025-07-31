@@ -1,18 +1,69 @@
-version: '3.8'
+version: '3.8'  # Версия формата docker-compose файла
 
-services:
-  postgres:
-    image: postgres:16
-    container_name: telegram_ai_bot_db
-    restart: always
+services:  # Определяем сервисы (контейнеры)
+
+  postgres:  # Имя сервиса - база данных
+    image: postgres:16-alpine  # Используем PostgreSQL версии 16 на Alpine Linux (легковесный)
+    container_name: telegram_ai_bot_db  # Имя контейнера в Docker
+    restart: unless-stopped  # Перезапускать контейнер, если он упал (кроме ручной остановки)
+
     ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: telegram_ai_bot
-      POSTGRES_USER: ai_user
-      POSTGRES_PASSWORD: ai_password
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+      - "5432:5432"  # Проброс портов: порт_на_хосте:порт_в_контейнере
+      # Позволяет подключаться к БД с хост-машины
 
-volumes:
+    environment:  # Переменные окружения для настройки PostgreSQL
+      POSTGRES_DB: telegram_ai_bot      # Имя базы данных
+      POSTGRES_USER: ai_user            # Имя пользователя БД
+      POSTGRES_PASSWORD: ai_password    # Пароль пользователя БД
+
+    volumes:  # Монтирование томов для сохранения данных
+      - pgdata:/var/lib/postgresql/data  # Данные БД сохраняются между перезапусками
+
+    healthcheck:  # Проверка здоровья сервиса
+      test: ["CMD-SHELL", "pg_isready -U ai_user -d telegram_ai_bot"]  # Команда проверки
+      interval: 10s   # Проверять каждые 10 секунд
+      timeout: 5s     # Таймаут на выполнение проверки
+      retries: 5      # Количество попыток
+
+  app:  # Наше Spring Boot приложение
+    build: .  # Собрать образ из Dockerfile в текущей директории
+    container_name: telegram_ai_bot_app
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"  # Проброс порта для доступа к API
+
+    environment:  # Переменные окружения для Spring Boot
+      SPRING_PROFILES_ACTIVE: docker  # Активный профиль Spring
+      # Переопределяем настройки БД для работы внутри Docker сети
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/telegram_ai_bot
+      # 'postgres' - это имя сервиса выше, Docker автоматически резолвит его в IP
+      SPRING_DATASOURCE_USERNAME: ai_user
+      SPRING_DATASOURCE_PASSWORD: ai_password
+      # Эти переменные берутся из .env файла или переменных окружения хоста
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+
+    depends_on:  # Зависимости - app запустится только после postgres
+      postgres:
+        condition: service_healthy  # Ждём, пока postgres пройдёт healthcheck
+
+    healthcheck:  # Проверка здоровья приложения
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      # curl -f вернёт ошибку, если статус не 200 OK
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:  # Определение именованных томов
   pgdata:
+    driver: local  # Используем локальное хранилище Docker
+
+# Как это работает:
+# 1. docker-compose up - запускает все сервисы
+# 2. Docker создаёт внутреннюю сеть для контейнеров
+# 3. Контейнеры могут обращаться друг к другу по имени сервиса
+# 4. depends_on гарантирует правильный порядок запуска
+# 5. healthcheck позволяет убедиться, что сервис действительно работает
+# 6. volumes сохраняют данные при перезапуске контейнеров

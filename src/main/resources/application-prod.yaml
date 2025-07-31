@@ -1,0 +1,12 @@
+# Этот файл тоже НЕ попадёт в Git
+# Используется на реальном сервере
+spring:
+  datasource:
+    url: jdbc:postgresql://prod-server:5432/telegram_ai_bot_prod
+    username: ${DB_USERNAME}  # Берёт из переменных окружения сервера
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate  # В продакшене не меняем структуру БД автоматически
+    show-sql: false      # Не показываем SQL в логах

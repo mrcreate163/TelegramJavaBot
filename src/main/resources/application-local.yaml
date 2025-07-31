@@ -1,0 +1,7 @@
+telegram:
+  bot:
+    username: content_maker_java_bot
+    token: 8104387648:AAHRxOyZIq9eZ_c5wGz6zZLmZUjhj78PcOA
+
+openrouter:
+  api-key: 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

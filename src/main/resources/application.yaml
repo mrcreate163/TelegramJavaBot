@@ -15,9 +15,9 @@ spring:
         format_sql: true
 telegram:
   bot:
-    username: content_maker_java_bot
-    token: 8104387648:AAHRxOyZIq9eZ_c5wGz6zZLmZUjhj78PcOA
+    username: ${TELEGRAM_BOT_USERNAME}
+    token: ${TELEGRAM_BOT_TOKEN}
 
 openrouter:
-  api-key: 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
-  model: mistralai/mistral-7b-instruct
+  api-key: ${OPENROUTER_API_KEY}
+  model: ${OPENROUTER_MODEL:mistralai/mistral-7b-instruct}

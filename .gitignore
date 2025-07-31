@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Конфиденциальные файлы
+application-local.yaml
+application-prod.yaml
+.env
+*.env
+!.env.example
