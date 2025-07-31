@@ -35,6 +35,6 @@ build/
 # Конфиденциальные файлы
 application-local.yaml
 application-prod.yaml
-.env
+docker/.env
 *.env
 !.env.example

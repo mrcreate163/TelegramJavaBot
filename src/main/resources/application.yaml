@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    active: local
   datasource:
     url: jdbc:postgresql://localhost:5432/telegram_ai_bot
     username: ai_user

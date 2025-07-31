@@ -26,7 +26,9 @@ services:  # Определяем сервисы (контейнеры)
       retries: 5      # Количество попыток
 
   app:  # Наше Spring Boot приложение
-    build: .  # Собрать образ из Dockerfile в текущей директории
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile # Собрать образ из Dockerfile в текущей директории
     container_name: telegram_ai_bot_app
     restart: unless-stopped
 
