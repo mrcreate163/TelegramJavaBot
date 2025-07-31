@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: false
+
+  h2:
+    console:
+      enabled: false
+
+telegram:
+  bot:
+    username: test_bot
+    token: test_token
+
+openrouter:
+  api-key: test-api-key
+  model: test-model
+
+logging:
+  level:
+    org.springframework: WARN
+    prototype.javabot: INFO

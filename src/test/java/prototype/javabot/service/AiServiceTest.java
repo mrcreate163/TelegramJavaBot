@@ -1,24 +1,24 @@
 package prototype.javabot.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.reactive.function.client.WebClient;
+import prototype.javabot.model.ContentType;
+import prototype.javabot.model.aiSettings.UserAiSetting;
 import reactor.core.publisher.Mono;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-// @ExtendWith говорит JUnit использовать Mockito для создания моков
 @ExtendWith(MockitoExtension.class)
 class AiServiceTest {
 
-    // @Mock создаёт фиктивный объект WebClient
     @Mock
     private WebClient webClient;
 
@@ -34,18 +34,22 @@ class AiServiceTest {
     @Mock
     private WebClient.ResponseSpec responseSpec;
 
-    // @InjectMocks создаёт реальный AiService и внедряет в него моки
-    @InjectMocks
     private AiService aiService;
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
-        // Устанавливаем значения приватных полей для теста
+        // Создаем реальный AiService
+        aiService = new AiService();
+        objectMapper = new ObjectMapper();
+
+        // Устанавливаем тестовые значения через рефлексию
         ReflectionTestUtils.setField(aiService, "apiKey", "test-api-key");
         ReflectionTestUtils.setField(aiService, "model", "test-model");
+        ReflectionTestUtils.setField(aiService, "webClient", webClient);
+        ReflectionTestUtils.setField(aiService, "objectMapper", objectMapper);
 
-        // Настраиваем цепочку вызовов WebClient
-        // Это называется stubbing - мы говорим моку, что возвращать
+        // Настраиваем цепочку моков WebClient
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
         when(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec);
@@ -55,11 +59,10 @@ class AiServiceTest {
 
     @Test
     void askAi_ShouldReturnGeneratedContent_WhenApiCallSuccessful() {
-        // Given (Подготовка данных)
+        // Given
         String userMessage = "Напиши пост про Java";
         String expectedResponse = "Java - отличный язык программирования!";
 
-        // Подготавливаем JSON ответ от API
         String mockApiResponse = """
             {
                 "choices": [{
@@ -70,20 +73,49 @@ class AiServiceTest {
             }
             """.formatted(expectedResponse);
 
-        // Настраиваем мок для возврата нашего ответа
         when(responseSpec.bodyToMono(String.class))
                 .thenReturn(Mono.just(mockApiResponse));
 
-        // When (Выполнение тестируемого метода)
+        // When
         String result = aiService.askAi(userMessage);
 
-        // Then (Проверка результатов)
-        assertNotNull(result, "Результат не должен быть null");
-        assertEquals(expectedResponse, result, "Ответ должен совпадать с ожидаемым");
+        // Then
+        assertNotNull(result);
+        assertEquals(expectedResponse, result);
 
-        // Verify проверяет, что методы были вызваны
-        verify(webClient, times(1)).post();
+        // Проверяем, что API был вызван правильно
+        verify(webClient).post();
+        verify(requestBodyUriSpec).uri("/chat/completions");
         verify(requestBodySpec, times(2)).header(anyString(), anyString());
+    }
+
+    @Test
+    void askAiWithSettings_ShouldApplyUserSettings() {
+        // Given
+        String userMessage = "Test message";
+        ContentType contentType = ContentType.POST;
+        UserAiSetting settings = UserAiSetting.getDefault();
+        String expectedResponse = "Generated content";
+
+        String mockApiResponse = """
+            {
+                "choices": [{
+                    "message": {
+                        "content": "%s"
+                    }
+                }]
+            }
+            """.formatted(expectedResponse);
+
+        when(responseSpec.bodyToMono(String.class))
+                .thenReturn(Mono.just(mockApiResponse));
+
+        // When
+        String result = aiService.askAiWithSettings(userMessage, contentType, settings);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(expectedResponse, result);
     }
 
     @Test
@@ -107,12 +139,12 @@ class AiServiceTest {
         String result = aiService.askAi(userMessage);
 
         // Then
-        assertTrue(result.contains("Извините"), "Должно содержать извинение");
-        assertTrue(result.contains(errorMessage), "Должно содержать сообщение об ошибке");
+        assertTrue(result.contains("Извините"));
+        assertTrue(result.contains(errorMessage));
     }
 
     @Test
-    void askAi_ShouldHandleEmptyResponse() {
+    void askAi_ShouldHandleEmptyChoices() {
         // Given
         String userMessage = "Test";
         String emptyResponse = """
@@ -128,13 +160,21 @@ class AiServiceTest {
         String result = aiService.askAi(userMessage);
 
         // Then
-        assertTrue(result.contains("пустой ответ"), "Должно быть сообщение о пустом ответе");
+        assertTrue(result.contains("пустой ответ"));
+    }
+
+    @Test
+    void askAi_ShouldHandleWebClientException() {
+        // Given
+        String userMessage = "Test";
+
+        when(responseSpec.bodyToMono(String.class))
+                .thenReturn(Mono.error(new RuntimeException("Network error")));
+
+        // When
+        String result = aiService.askAi(userMessage);
+
+        // Then
+        assertTrue(result.contains("Извините") || result.contains("ошибка"));
     }
 }
-
-// Основные концепции тестирования:
-// 1. @Mock - создаёт фиктивные объекты (заглушки)
-// 2. when().thenReturn() - определяет поведение моков
-// 3. Given-When-Then - структура теста (Дано-Когда-Тогда)
-// 4. verify() - проверяет, что методы были вызваны
-// 5. assert*() - проверяет результаты
